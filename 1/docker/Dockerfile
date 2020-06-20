@@ -17,9 +17,11 @@ RUN useradd -mG sudo student && mkdir -p /etc/sudoers.d && \
     echo '%sudo   ALL=(ALL:ALL) NOPASSWD: ALL' > /etc/sudoers.d/sudo_nopasswd && \
     mkdir -p /home/student/src && \
     echo "alias gdb=\"arm-none-eabi-gdb -ex 'target remote:1234' /home/student/src/linux/vmlinux\"" >> /home/student/.bashrc && \
-    echo "su student" >> /root/.bashrc
+    echo "su student" >> /root/.bashrc && \
+    echo "cd home/student/src/initramfs/build/initramfs_root/" >> /home/student/.bashrc
 
 COPY ./entrypoint.sh /
 COPY ./default_cmd.sh /
+RUN chmod +x entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/default_cmd.sh"]

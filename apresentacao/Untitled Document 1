@@ -1,0 +1,248 @@
+# executaveis gdb
+objdump -h init
+add-symbol-file init 0x00010170
+
+b 36 -> main
+b 42 -> fork
+b 51 -> open
+b 56 -> write
+b 58 -> close
+b 65 -> wait
+b 75 -> sleep
+
+add-symbol-file init 0x00010170
+y
+b 36 
+b *0x27ecc
+b 51
+b 56
+b *0x27bec
+b 74
+s
+
+
+0x27ecc <fork+272>      mov    r7, #120        ; 0x78   fork sys_clone
+0x27bec <wait+32>       mov    r7, #114        ; 0x72   wait wait4
+
+apresentacao 2
+
+add-symbol-file divideByZero 0x00010170
+y
+watch sa.sa_flags
+
+b 4
+b 17  // nao nao
+0x10668 <__divsi3>      cmp    r1, #0
+0x15d34 <raise+44>      mov    r7, #268        ; sys_tgkill
+0xc003012c <SyS_tgkill>         cmp    r0, #0  
+0x15ef0 <__default_sa_restorer>         mov    r7, #119        ; sig_return
+group_send_sig_info ; send signal info to all the members of a group 
+check_kill_permission ;Bad permissions for sending the signal                                                      
+                      * - the caller must hold the RCU read lock 
+send_signal
+  __sigqueue_alloc
+  prepare_signal
+  complete_signal
+  wants_signal
+  do_signal
+next_signal
+  collect_signal
+
+b setup_frame
+b setup_rt_frame
+b handle_signal
+b 17  // nao nao
+add-symbol-file divideByZero 0x00010170
+y
+b *0x10668
+b *0x15d34
+b *0xc003012c
+b check_kill_permission
+//b group_send_sig_info
+b send_signal
+b do_signal
+b setup_sigframe
+b setup_return
+b 4
+b *0x15ef0
+
+
+anotacoes para segunda apresentacao 
+- Sys_kill
+      /**                                                                                            
+    *  sys_kill - send a signal to a process                                                      
+    *  @pid: the PID of the process                                                               
+    *  @sig: signal to be sent                                                                    
+    */  
+  - pid_vnr
+  - find_pid_ns - - kernel/pid.c
+  - kill_pid_info - - kernel/signal.c
+    - pid_task
+  - group_send_sig_info
+    /*                                                                                             
+    * send signal info to all the members of a group                                              
+    */ 
+    - check_kill_permission
+      /*                                                                                             
+      * Bad permissions for sending the signal                                                      
+      * - the caller must hold the RCU read lock                                                    
+      */ 
+    - do_send_sig_info
+      - __lock_task_sighand
+        /*                                                                                             
+        * Save the current interrupt enable state & disable IRQs                                      
+        */  
+      - send_signal
+        - task_active_pid_ns
+        - __task_pid_nr_ns
+        - prepare_signal
+          /*                                                                                             
+          * Handle magic process-wide effects of stop/continue signals. Unlike                          
+          * the signal actions, these happen immediately at signal-generation                           
+          * time regardless of blocking, ignoring, or handling.  This does the                          
+          * actual continuing for SIGCONT, but not the actual stopping for stop                         
+          * signals. The process stop is done as a signal action for SIG_DFL.                           
+          *                                                                                             
+          * Returns true if the signal should be actually delivered, otherwise                          
+          * it should be dropped.                                                                       
+          */   
+        - __send_signal
+          - __sigqueue_alloc
+            /*                                                                                             
+            * allocate a new signal queue record                                                          
+            * - this may be called without locks if and only if t == current, otherwise an                
+            *   appropriate lock must be held to stop the target task from exiting                        
+            */  
+            - kmem_cache_alloc 
+              /**                                                                                            
+              * kmem_cache_alloc - Allocate an object                                                       
+              * @cachep: The cache to allocate from.                                                        
+              * @flags: See kmalloc().                                                                      
+              *                                                                                             
+              * Allocate an object from this cache.  The flags are only relevant                            
+              * if the cache has no available objects.                                                      
+              */    
+            - __sigqueue_alloc
+              /*                                                                                             
+              * allocate a new signal queue record                                                          
+              * - this may be called without locks if and only if t == current, otherwise an                
+              *   appropriate lock must be held to stop the target task from exiting                        
+              */    
+          - mmiocpy 
+            * This file provides the core code for a forward memory copy used in                          
+            * the implementation of memcopy(), copy_to_user() and copy_from_user().
+        - complete_signal
+          /*                                                                                     
+          * Now find a thread we can wake up to take the signal off the queue.                  
+          *                                                                                     
+          * If the main thread wants the signal, it gets first crack.                           
+          * Probably the least surprising to the average bear.                                  
+          */
+          /*                                                                                     
+          * The signal is already in the shared-pending queue.                                  
+          * Tell the chosen thread to wake up and dequeue it.                                   
+          */ 
+          -"wants_signal"
+            * Test if P wants to take SIG.  After we've checked all threads with this,                    
+            * it's equivalent to finding no threads not blocking SIG.  Any threads not                    
+            * blocking SIG were ruled out because they are not running and already                        
+            * have pending signals.  Such threads will dequeue from the shared queue                      
+            * as soon as they're available, so putting the signal on the shared queue                     
+            * will be equivalent to sending it to one such thread.    
+          - task_curr
+            * task_curr - is this task currently executing on a CPU?                                      
+            * @p: the task in question.                                                                   
+            *                                                                                             
+            * Return: 1 if the task is currently executing. 0 otherwise.  
+          - signal_wake_up_state
+            /*                                                                                             
+            * Tell a process that it has a new active signal..                                            
+            *                                                                                             
+            * NOTE! we rely on the previous spin_lock to                                                  
+            * lock interrupts for us! We can only be called with                                          
+            * "siglock" held, and the local interrupt must                                                
+            * have been disabled when that got acquired!                                                  
+            *                                                                                             
+            * No need to set need_resched since signal event passing                                      
+            * goes through ->blocked                                                                      
+            */  
+            - wake_up_state 
+              - try_to_wake_up
+                /**                                                                                            
+                * try_to_wake_up - wake up a thread                                                           
+                * @p: the thread to be awakened                                                               
+                * @state: the mask of task states that can be woken                                           
+                * @wake_flags: wake modifier flags (WF_*)                                                     
+                *                                                                                             
+                * If (@state & @p->state) @p->state = TASK_RUNNING.                                           
+                *                                                                                             
+                * If the task was not queued/runnable, also place it back on a runqueue.                      
+                *                                                                                             
+                * Atomic against schedule() which would dequeue a task, also see                              
+                * set_current_state().                                                                        
+                *                                                                                             
+                * Return: %true if @p->state changes (an actual wakeup was done),                             
+                *         %false otherwise.                                                                   
+                */ 
+                - update_rq_clock  
+                  - sched_clock_cpu
+                    - sched_clock
+                      - versatile_sys_24mhz_read
+              - activate_task
+                - enqueue_task_fair
+                  /*                                                                                             
+                  * The enqueue_task method is called before nr_running is                                      
+                  * increased. Here we update the fair scheduling stats and                                     
+                  * then put the task into the rbtree:                                                          
+                  */    
+                  - update_curr
+                    - update_min_vruntime
+                  - __enqueue_entity
+                    /*                                                                                             
+                    * Enqueue an entity into the rb-tree:                                                         
+                    */ 
+              - check_preempt_curr
+              - check_preempt_wakeup
+              - wakeup_preempt_entity
+              - check_preempt_wakeup
+          - send_signal (back to this)
+            - do_send_sig_info   /include/linux/sched/signal.h signal.c
+        - kill_pid_info (back to this)
+     - Sys_kill (back)
+      - ret_fast_syscall
+        /*                                                                                             
+        * This is the fast syscall return path.  We do as little as possible here,                    
+        * such as avoiding writing r0 to the stack.  We only use this path if we                      
+        * have tracing and context tracking disabled - the overheads from those                       
+        * features make this path too inefficient.                                                    
+        */ 
+      - do_signal
+        /*                                                                                             
+        * Note that 'init' is a special process: it doesn't get signals it doesn't                    
+        * want to handle. Thus you cannot kill init even with a SIGKILL even by                       
+        * mistake.                                                                                    
+        *                                                                                             
+        * Note that we go through the signals twice: once to check the signals that                   
+        * the kernel can handle, and then we build all the user-level signal handling                     
+        * stack-frames in one go after that.   
+        - get_signal  -- get signal to deliver
+          - dequeue_signal
+            /*                                                                                             
+            * Dequeue a signal and return the element to the caller, which is                             
+            * expected to free it.                                                                        
+            *                                                                                             
+            * All callers have to hold the siglock.                                                       
+            */  
+            - next_signal
+              /* Given the mask, find the first available signal that should be serviced. */ 
+            - collect_signal
+              /*                                                                                     
+              * Collect the siginfo appropriate to this signal.  Check if                           
+              * there is another siginfo for the same signal.                                       
+              */    
+              - __sigqueue_free
+              - free_uid
+              - recalc_sigpending
+        - setup_sigframe
+        - setup_return
+        - signal_setup_done

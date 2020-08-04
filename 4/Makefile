@@ -8,11 +8,14 @@ SELF_DIR:=$(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 clean::
 	find $(SELF_DIR) -name '*.o' -delete
 
-USR_BIN_FILES:=capacity_page_fault mmap_page_fault
+USR_BIN_FILES:=large capacity_page_fault mmap_page_fault
 include ../initramfs_base/usr_bin_binaries.make
 $(BUILD_DIR)/rootfs.gz: build_auxiliary_disk build_swap $(USR_BIN)
 
 include ../initramfs_base/Makefile
+
+$(BUILD_DIR)/initramfs_root/large: $(SELF_DIR)/src/large.o
+	$(CC) -o $@ $^
 
 .PHONY: build_auxiliary_disk build_swap
 

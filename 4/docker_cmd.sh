@@ -42,4 +42,4 @@ qemu-system-arm -M versatilepb -m 64M -nographic -kernel $BOOT/zImage -dtb $BOOT
     -initrd build/rootfs.gz \
     -append "root=/dev/sda virtio_pci.force_legacy=1" \
     -drive file=build/swap.img,format=raw,if=virtio,index=0 \
-    -drive file=build/aux_disk.img,format=raw,if=virtio,index=1
+    -drive file=build/aux_disk.img,format=raw,if=virtio,index=1 -s -S

@@ -2,6 +2,27 @@
 objdump -h init
 add-symbol-file init 0x00010170
 
+add-symbol-file init 0x00010170
+y
+b 48
+c
+c
+c
+c
+c
+
+b do_page_fault
+b find_vma
+b handle_mm_fault
+b do_wp_page
+b vm_normal_page
+b reuse_swap_page
+b unlock_page
+b wp_page_copy
+b get_page_from_freelist
+
+b free_hot_cold_page -> nao ta dando
+
 b 36 -> main
 b 42 -> fork
 b 51 -> open

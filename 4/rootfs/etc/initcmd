@@ -9,4 +9,6 @@
 # Blank line separator
 
 # Common user-mode processes. Will be run in parallel
-/usr/bin/busybox sh
+# /usr/bin/busybox sh
+/usr/bin/large
+/usr/bin/large -o
